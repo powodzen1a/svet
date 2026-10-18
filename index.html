@@ -242,7 +242,10 @@ let t0 = performance.now(), fire = 1, fireT = 1, flash = 0;
 
 /* ---------- Bluetooth ---------- */
 let dev = null, ch = null, busy = false, pending = null, last = '', alt = false, wantConnected = store.get('wasConnected', false);
+const U = n => '0000' + n + '-0000-1000-8000-00805f9b34fb';
+const SVC = [U('fff0'), U('ffe0')];
 const FILTERS = ['ELK', 'MELK', 'BLEDO', 'LEDBLE', 'LED-', 'DUOCO', 'QHM', 'TRIONES'].map(p => ({ namePrefix: p }));
+const why = e => (e && (e.message || e.name)) || String(e || 'неизвестная ошибка');
 const pkt = {
   color: (r, g, b) => alt ? [0x7e, 7, 5, 3, r, g, b, 0x10, 0xef] : [0x7e, 0, 5, 3, r, g, b, 0, 0xef],
   on: () => alt ? [0x7e, 4, 4, 0xf0, 0, 1, 0xff, 0, 0xef] : [0x7e, 0, 4, 0xf0, 0, 1, 0xff, 0, 0xef],
@@ -273,7 +276,7 @@ async function attach(d) {
   status('Подключаюсь к ' + (d.name || 'ленте') + '…');
   const g = await d.gatt.connect();
   ch = null;
-  for (const [s, c] of [[0xfff0, 0xfff3], [0xffe0, 0xffe1]]) {
+  for (const [s, c] of [[U('fff0'), U('fff3')], [U('ffe0'), U('ffe1')]]) {
     try { ch = await (await g.getPrimaryService(s)).getCharacteristic(c); break; } catch (e) {}
   }
   if (!ch) throw new Error('у этого контроллера не нашёлся канал управления');
@@ -293,10 +296,17 @@ async function connect() {
   err('');
   if (!navigator.bluetooth) { err('Этот браузер не умеет Bluetooth. На айфоне открой страницу в браузере Bluefy.'); return; }
   try {
-    const d = await navigator.bluetooth.requestDevice({ filters: FILTERS, optionalServices: [0xfff0, 0xffe0] });
+    let d;
+    try {
+      d = await navigator.bluetooth.requestDevice({ filters: FILTERS, optionalServices: SVC });
+    } catch (e1) {
+      if (e1 && e1.name === 'NotFoundError') throw e1;
+      // Некоторые браузеры не понимают фильтр по имени: показываем все устройства.
+      d = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: SVC });
+    }
     await attach(d);
   } catch (e) {
-    if (e.name !== 'NotFoundError') err('Не получилось подключиться: ' + e.message);
+    if (!e || e.name !== 'NotFoundError') err('Не получилось подключиться: ' + why(e));
     status('Лента не подключена');
   }
 }
