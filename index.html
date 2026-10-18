@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0b0b10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Свет</title>
+<style>
+/* Тёмная комната, светится только то, что светит лента: интерфейс приглушён, цвет — главный герой. */
+:root{
+  --bg:#0b0b10; --panel:#15151d; --raise:#1e1e29; --line:#2a2a38;
+  --fg:#f1eff6; --mute:#8d8a9e; --glow:#ff6fa8;
+  --r:16px; color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--fg)}
+body{font:15px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",Roboto,sans-serif;padding:0 16px calc(90px + env(safe-area-inset-bottom));min-height:100vh}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--glow);outline-offset:2px}
+
+/* Шапка: живое «окно» в цвет ленты */
+.hero{position:sticky;top:0;z-index:5;margin:0 -16px;padding:calc(12px + env(safe-area-inset-top)) 16px 14px;background:linear-gradient(var(--bg) 70%,transparent)}
+.lamp{display:flex;align-items:center;gap:14px}
+.orb{width:58px;height:58px;border-radius:50%;flex:none;background:var(--glow);box-shadow:0 0 34px 6px var(--glow);transition:box-shadow .15s}
+.title{flex:1;min-width:0}
+.title h1{margin:0;font-size:22px;letter-spacing:-.01em}
+#status{font-size:13px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.power{width:52px;height:52px;border-radius:50%;border:1px solid var(--line);background:var(--raise);display:grid;place-items:center;flex:none}
+.power svg{width:22px;height:22px}
+.power.on{background:var(--glow);border-color:transparent;color:#111}
+.connect{margin-top:12px;width:100%;padding:13px;border-radius:var(--r);border:0;background:var(--fg);color:#111;font-weight:600}
+
+/* Вкладки снизу, как в приложении */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:6;display:grid;grid-template-columns:repeat(4,1fr);background:rgba(15,15,21,.94);backdrop-filter:blur(14px);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom))}
+nav button{border:0;background:none;padding:8px 0;font-size:12px;color:var(--mute);display:grid;justify-items:center;gap:3px}
+nav button svg{width:22px;height:22px}
+nav button.on{color:var(--fg)}
+
+section{display:grid;gap:14px;padding-top:4px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px;display:grid;gap:12px}
+h2{margin:6px 0 0;font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.label{font-size:13px;color:var(--mute);display:flex;justify-content:space-between}
+.label b{color:var(--fg);font-weight:500;font-variant-numeric:tabular-nums}
+
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:30px;background:transparent}
+input[type=range]::-webkit-slider-runnable-track{height:10px;border-radius:6px;background:var(--track,var(--raise))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;margin-top:-8px;border-radius:50%;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.5)}
+#hue{--track:linear-gradient(90deg,red,#ff0,lime,cyan,blue,#f0f,red)}
+
+.grid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px}
+.sw{aspect-ratio:1;border-radius:50%;border:0;max-width:100%}
+.sw.on{outline:2px solid #fff;outline-offset:2px}
+.hexrow{display:flex;gap:8px}
+.hexrow input[type=text]{flex:1;min-width:0;background:var(--raise);border:1px solid var(--line);border-radius:12px;padding:11px 12px;font-family:ui-monospace,Menlo,monospace;text-transform:uppercase}
+.hexrow input[type=color]{width:48px;height:46px;border:1px solid var(--line);border-radius:12px;background:var(--raise);padding:4px}
+.btn{border:1px solid var(--line);background:var(--raise);border-radius:12px;padding:11px 14px}
+.btn.primary{background:var(--fg);color:#111;border-color:transparent;font-weight:600}
+
+.presets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.preset{border:1px solid var(--line);border-radius:14px;padding:12px;text-align:left;background:var(--panel);display:grid;gap:8px;min-width:0}
+.preset.on{border-color:#fff}
+.preset .bar{height:30px;border-radius:9px}
+.preset span{font-size:14px}
+.preset small{color:var(--mute);font-size:12px}
+.effects{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.effects button{border:1px solid var(--line);background:var(--raise);border-radius:12px;padding:12px 4px;font-size:13px}
+.effects button.on{background:var(--fg);color:#111;border-color:transparent}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{border:1px solid var(--line);background:var(--raise);border-radius:999px;padding:6px 11px;font-size:13px}
+.chips button.on{background:var(--fg);color:#111}
+
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.row > *{min-width:0}
+.sched{display:grid;gap:8px}
+.item{display:flex;align-items:center;gap:10px;background:var(--raise);border-radius:12px;padding:10px 12px}
+.item .t{font-size:20px;font-variant-numeric:tabular-nums;width:64px}
+.item .d{flex:1;min-width:0;font-size:13px;color:var(--mute)}
+.item .d b{display:block;color:var(--fg);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.x{border:0;background:none;color:var(--mute);font-size:20px;padding:4px 8px}
+select,input[type=time]{background:var(--raise);border:1px solid var(--line);border-radius:12px;padding:10px;min-width:0}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;width:100%}
+.days button{border:1px solid var(--line);background:var(--raise);border-radius:10px;padding:8px 0;font-size:12px}
+.days button.on{background:var(--fg);color:#111}
+.note{font-size:13px;color:var(--mute)}
+.warn{font-size:13px;color:#ffb36b}
+@media (prefers-reduced-motion:reduce){.orb{transition:none}}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="lamp">
+    <div class="orb" id="orb"></div>
+    <div class="title"><h1 id="pname">Свет</h1><div id="status">Лента не подключена</div></div>
+    <button class="power on" id="power" aria-label="Включить или выключить ленту">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>
+    </button>
+  </div>
+  <button class="connect" id="connect">Подключить ленту</button>
+  <div class="warn" id="err" hidden></div>
+</div>
+
+<main>
+<!-- Пресеты -->
+<section id="tab-presets">
+  <h2>Атмосферы</h2>
+  <div class="presets" id="presets"></div>
+  <h2>Мои</h2>
+  <div class="presets" id="mine"></div>
+  <button class="btn" id="saveMine">Сохранить текущий свет как свой пресет</button>
+</section>
+
+<!-- Цвет -->
+<section id="tab-color" hidden>
+  <div class="card">
+    <div class="label">Оттенок <b id="hueV"></b></div>
+    <input type="range" id="hue" min="0" max="359" value="330" aria-label="Оттенок">
+    <div class="label">Насыщенность <b id="satV"></b></div>
+    <input type="range" id="sat" min="0" max="100" value="60" aria-label="Насыщенность">
+    <div class="label">Яркость <b id="brV"></b></div>
+    <input type="range" id="bright" min="1" max="100" value="100" aria-label="Яркость">
+  </div>
+  <div class="card">
+    <div class="label">Цвет по коду</div>
+    <div class="hexrow">
+      <input type="text" id="hex" maxlength="7" value="#FF6FA8" autocomplete="off" spellcheck="false" aria-label="Код цвета">
+      <input type="color" id="picker" value="#ff6fa8" aria-label="Выбрать цвет">
+      <button class="btn primary" id="hexGo">Ок</button>
+    </div>
+  </div>
+  <h2>Спектр</h2>
+  <div class="grid" id="spectrum"></div>
+</section>
+
+<!-- Эффекты -->
+<section id="tab-fx" hidden>
+  <div class="effects" id="effects"></div>
+  <div class="card">
+    <div class="label">Скорость <b id="spV"></b></div>
+    <input type="range" id="speed" min="1" max="100" value="35" aria-label="Скорость">
+    <div class="label">Палитра для переливов</div>
+    <div class="chips" id="palettes"></div>
+  </div>
+</section>
+
+<!-- Расписание -->
+<section id="tab-sched" hidden>
+  <div class="card">
+    <div class="row">
+      <input type="time" id="sTime" value="22:30" aria-label="Время">
+      <select id="sAction" aria-label="Действие"></select>
+    </div>
+    <div class="days" id="sDays"></div>
+    <button class="btn primary" id="sAdd">Добавить</button>
+  </div>
+  <div class="sched" id="sList"></div>
+  <p class="note">Расписание срабатывает, пока эта страница открыта: оставь телефон на зарядке с открытым приложением, экран не погаснет. В закрытом виде айфон не даёт странице подключаться к ленте.</p>
+</section>
+</main>
+
+<nav>
+  <button class="on" data-tab="presets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>Атмосферы</button>
+  <button data-tab="color"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="8.5" cy="10" r="1.5" fill="currentColor"/><circle cx="12" cy="7" r="1.5" fill="currentColor"/><circle cx="15.5" cy="10" r="1.5" fill="currentColor"/></svg>Цвет</button>
+  <button data-tab="fx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12c2-6 4-6 6 0s4 6 6 0 4-6 6 0"/></svg>Эффекты</button>
+  <button data-tab="sched"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Расписание</button>
+</nav>
+
+<script>
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+
+/* ---------- Цвет ---------- */
+function hsv(h, s, v) {
+  const f = n => { const k = (n + h / 60) % 6; return v * (1 - s * Math.max(0, Math.min(k, 4 - k, 1))); };
+  return [f(5) * 255, f(3) * 255, f(1) * 255];
+}
+function toHsv([r, g, b]) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let h = 0;
+  if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [(h * 60 + 360) % 360, mx ? d / mx : 0, mx];
+}
+const hex = c => '#' + c.map(v => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0')).join('').toUpperCase();
+const fromHex = h => { const m = /^#?([0-9a-f]{6}|[0-9a-f]{3})$/i.exec(h.trim()); if (!m) return null;
+  let s = m[1]; if (s.length === 3) s = s.split('').map(x => x + x).join('');
+  return [0, 2, 4].map(i => parseInt(s.substr(i, 2), 16)); };
+const mix = (a, b, k) => a.map((v, i) => v + (b[i] - v) * k);
+
+/* ---------- Пресеты ---------- */
+const P = (name, sub, fx, colors, speed = 30) => ({ name, sub, fx, colors: colors.map(fromHex), speed });
+const PRESETS = [
+  P('Нежный розовый', 'спокойный', 'solid', ['#FF8FB8']),
+  P('Тёплый вечер', 'уютный', 'solid', ['#FF9A3C']),
+  P('Костёр', 'живой огонь', 'fire', ['#FF3A00', '#FF9A1A']),
+  P('Свеча', 'мягкое мерцание', 'candle', ['#FF7A1A', '#FFB050']),
+  P('Закат', 'медленный перелив', 'flow', ['#FF4E00', '#FF0F6B', '#9B1BFF', '#FF8A00'], 12),
+  P('Рассвет', 'разгорается 15 мин', 'sunrise', ['#7A0000', '#FF5A00', '#FFC890']),
+  P('Северное сияние', 'перелив', 'flow', ['#00FF9C', '#00C8FF', '#7A3CFF', '#00FFD0'], 14),
+  P('Океан', 'волны', 'flow', ['#0030FF', '#00B4FF', '#00FFC8', '#0060A0'], 16),
+  P('Лаванда', 'спокойный', 'solid', ['#B48CFF']),
+  P('Персик', 'мягкий', 'solid', ['#FFB08A']),
+  P('Мята', 'свежий', 'solid', ['#7DFFC8']),
+  P('Лес', 'перелив', 'flow', ['#0A8A00', '#7DFF00', '#FFB000', '#1E5A10'], 12),
+  P('Кино', 'приглушённый', 'solid', ['#FF5A12'], 0),
+  P('Чтение', 'тёплый белый', 'solid', ['#FFD6A8']),
+  P('Ночник', 'едва светит', 'solid', ['#FF4A10'], 0),
+  P('Романтика', 'дыхание', 'breath', ['#FF1F5A'], 18),
+  P('Медитация', 'медленное дыхание', 'breath', ['#3A5CFF'], 8),
+  P('Вечеринка', 'смена на ритм', 'steps', ['#FF00C8', '#00F0FF', '#7DFF00', '#FF2A6D', '#FFE000'], 55),
+  P('Неон', 'перелив', 'flow', ['#FF00C8', '#00F0FF', '#7DFF00'], 40),
+  P('Киберпанк', 'перелив', 'flow', ['#FF0080', '#00FFF0', '#8C00FF', '#FFE600'], 30),
+  P('Лава', 'огонь', 'fire', ['#B00000', '#FF5A00']),
+  P('Гроза', 'вспышки молний', 'storm', ['#1A1A60', '#E8F0FF'], 40),
+  P('Радуга', 'перелив', 'rainbow', ['#FF0000'], 30),
+  P('Мигалка', 'красный-синий', 'police', ['#FF0000', '#0000FF'], 50)
+];
+// Отдельная яркость для тихих пресетов
+const DIM = { 'Кино': 18, 'Ночник': 6 };
+
+const PALETTES = {
+  'Закат': ['#FF2A00', '#FF7A00', '#FF0060', '#7A00FF'], 'Океан': ['#0030FF', '#00B4FF', '#00FFC8', '#0060A0'],
+  'Неон': ['#FF00C8', '#00F0FF', '#7DFF00', '#FF2A6D'], 'Пастель': ['#FFAAC8', '#AAD2FF', '#BEFFD2', '#FFE6AA'],
+  'Тёплый': ['#FF8A20', '#FFB060', '#FF5A10'], 'Аврора': ['#00FF8C', '#00C8FF', '#783CFF'],
+  'Радуга': ['#FF0000', '#FFFF00', '#00FF00', '#00FFFF', '#0000FF', '#FF00FF']
+};
+
+const FX = [['solid', 'Цвет'], ['breath', 'Дыхание'], ['flow', 'Перелив'], ['steps', 'Шаги'], ['fire', 'Огонь'], ['candle', 'Свеча'],
+  ['storm', 'Гроза'], ['rainbow', 'Радуга'], ['strobe', 'Стробоскоп'], ['police', 'Мигалка'], ['sunrise', 'Рассвет'], ['pulse', 'Пульс']];
+
+/* ---------- Состояние ---------- */
+let st = Object.assign({ fx: 'solid', colors: [[255, 111, 168]], bright: 100, speed: 35, on: true, name: 'Нежный розовый' }, store.get('state', {}));
+let mine = store.get('mine', []);
+let schedule = store.get('schedule', []);
+let t0 = performance.now(), fire = 1, fireT = 1, flash = 0;
+
+/* ---------- Bluetooth ---------- */
+let dev = null, ch = null, busy = false, pending = null, last = '', alt = false, wantConnected = store.get('wasConnected', false);
+const FILTERS = ['ELK', 'MELK', 'BLEDO', 'LEDBLE', 'LED-', 'DUOCO', 'QHM', 'TRIONES'].map(p => ({ namePrefix: p }));
+const pkt = {
+  color: (r, g, b) => alt ? [0x7e, 7, 5, 3, r, g, b, 0x10, 0xef] : [0x7e, 0, 5, 3, r, g, b, 0, 0xef],
+  on: () => alt ? [0x7e, 4, 4, 0xf0, 0, 1, 0xff, 0, 0xef] : [0x7e, 0, 4, 0xf0, 0, 1, 0xff, 0, 0xef],
+  off: () => alt ? [0x7e, 4, 4, 0, 0, 0, 0xff, 0, 0xef] : [0x7e, 0, 4, 0, 0, 0, 0xff, 0, 0xef],
+  full: () => alt ? [0x7e, 4, 1, 100, 0, 0, 0, 0, 0xef] : [0x7e, 0, 1, 100, 0, 0, 0, 0, 0xef]
+};
+async function send(bytes, force) {
+  if (!ch) return;
+  const key = bytes.join();
+  if (!force && key === last) return;
+  if (busy) { pending = bytes; return; }
+  busy = true; last = key;
+  try {
+    const data = new Uint8Array(bytes);
+    if (ch.properties.writeWithoutResponse && ch.writeValueWithoutResponse) await ch.writeValueWithoutResponse(data);
+    else await ch.writeValue(data);
+  } catch (e) {}
+  busy = false;
+  if (pending) { const p = pending; pending = null; send(p, true); }
+}
+function status(t) { $('status').textContent = t; }
+function err(t) { $('err').textContent = t; $('err').hidden = !t; }
+
+async function attach(d) {
+  dev = d;
+  d.removeEventListener('gattserverdisconnected', onDrop);
+  d.addEventListener('gattserverdisconnected', onDrop);
+  status('Подключаюсь к ' + (d.name || 'ленте') + '…');
+  const g = await d.gatt.connect();
+  ch = null;
+  for (const [s, c] of [[0xfff0, 0xfff3], [0xffe0, 0xffe1]]) {
+    try { ch = await (await g.getPrimaryService(s)).getCharacteristic(c); break; } catch (e) {}
+  }
+  if (!ch) throw new Error('у этого контроллера не нашёлся канал управления');
+  const forced = store.get('dialect', 0);
+  alt = forced === 2 || (forced === 0 && /BLEDOM/i.test(d.name || ''));
+  status('Подключено: ' + (d.name || 'лента'));
+  $('connect').hidden = true; err('');
+  wantConnected = true; store.set('wasConnected', true);
+  last = ''; await send(st.on ? pkt.on() : pkt.off(), true); await send(pkt.full(), true); last = '';
+}
+function onDrop() {
+  ch = null; status('Связь потеряна, переподключаюсь…');
+  // Переподключение внутри открытой страницы не требует нажатий.
+  setTimeout(() => { if (dev && wantConnected) attach(dev).catch(() => { status('Лента не отвечает'); $('connect').hidden = false; }); }, 1500);
+}
+async function connect() {
+  err('');
+  if (!navigator.bluetooth) { err('Этот браузер не умеет Bluetooth. На айфоне открой страницу в браузере Bluefy.'); return; }
+  try {
+    const d = await navigator.bluetooth.requestDevice({ filters: FILTERS, optionalServices: [0xfff0, 0xffe0] });
+    await attach(d);
+  } catch (e) {
+    if (e.name !== 'NotFoundError') err('Не получилось подключиться: ' + e.message);
+    status('Лента не подключена');
+  }
+}
+// Автоподключение: если браузер помнит ленту, подключаемся без окна выбора.
+async function autoConnect() {
+  if (!navigator.bluetooth) { err('Этот браузер не умеет Bluetooth. На айфоне открой страницу в браузере Bluefy.'); return; }
+  if (!wantConnected || !navigator.bluetooth.getDevices) return;
+  try {
+    const list = await navigator.bluetooth.getDevices();
+    if (!list.length) return;
+    status('Ищу ленту…');
+    await attach(list[0]);
+  } catch (e) { status('Нажми «Подключить ленту»'); }
+}
+
+/* ---------- Отрисовка кадра ---------- */
+function frame() {
+  const t = (performance.now() - t0) / 1000, s = st.speed / 100, P = st.colors.length ? st.colors : [[255, 255, 255]];
+  let c = P[0], k = 1;
+  switch (st.fx) {
+    case 'breath': k = .06 + .94 * (.5 - .5 * Math.cos(t * (.3 + s * 6))); break;
+    case 'pulse': k = Math.pow(Math.max(0, Math.sin(t * (1 + s * 8))), 6) * .94 + .06; break;
+    case 'flow': { const x = t * (.02 + s * 1.2) % P.length, i = Math.floor(x); c = mix(P[i], P[(i + 1) % P.length], x - i); break; }
+    case 'steps': c = P[Math.floor(t * (.1 + s * 6)) % P.length]; break;
+    case 'rainbow': c = hsv(t * (5 + s * 120) % 360, 1, 1); break;
+    case 'fire':
+      if (Math.random() < .05 + s * .5) fireT = .35 + Math.random() * .65;
+      fire += (fireT - fire) * .3; c = mix(P[0], P[1] || P[0], fire); k = fire; break;
+    case 'candle':
+      if (Math.random() < .12) fireT = .7 + Math.random() * .3;
+      fire += (fireT - fire) * .15; c = mix(P[0], P[1] || P[0], fire); k = fire; break;
+    case 'storm':
+      if (flash <= 0 && Math.random() < .004 + s * .02) flash = 1 + Math.floor(Math.random() * 3);
+      if (flash > 0 && Math.random() < .5) { c = P[1] || [255, 255, 255]; k = 1; flash -= .34; }
+      else { c = P[0]; k = .35 + .1 * Math.sin(t); }
+      break;
+    case 'strobe': k = Math.floor(t * (1 + s * 14)) % 2; break;
+    case 'police': c = Math.floor(t * (1 + s * 10)) % 2 ? P[0] : (P[1] || [0, 0, 255]); break;
+    case 'sunrise': { const x = Math.min(1, t / 900); c = mix(mix(P[0], P[1] || P[0], Math.min(1, x * 2)), P[2] || P[1] || P[0], Math.max(0, x * 2 - 1)); k = .02 + .98 * x; break; }
+  }
+  k *= st.bright / 100;
+  const out = st.on ? c.map(v => Math.round(Math.max(0, Math.min(255, v * k)))) : [0, 0, 0];
+  if (st.on) send(pkt.color(...out));
+  const glow = st.on ? `rgb(${c.map(Math.round)})` : '#222';
+  $('orb').style.background = glow;
+  $('orb').style.boxShadow = `0 0 ${Math.round(8 + 34 * (st.on ? k : 0))}px ${Math.round(2 + 6 * k)}px ${glow}`;
+  document.documentElement.style.setProperty('--glow', glow);
+}
+setInterval(frame, 50);
+
+/* ---------- Применение ---------- */
+function save() { store.set('state', st); }
+function setColor(rgb, name) {
+  st.fx = 'solid'; st.colors = [rgb]; st.name = name || hex(rgb); t0 = performance.now();
+  save(); syncUI();
+}
+function applyPreset(p) {
+  st.fx = p.fx; st.colors = p.colors.map(c => c.slice()); st.name = p.name;
+  if (p.speed) st.speed = p.speed;
+  st.bright = DIM[p.name] || (p.bright || 100);
+  st.on = true; t0 = performance.now();
+  save(); syncUI(); send(pkt.on(), true); last = '';
+}
+function power(on) {
+  st.on = on; save(); syncUI();
+  send(on ? pkt.on() : pkt.off(), true); last = '';
+}
+
+/* ---------- Интерфейс ---------- */
+function presetCard(p, onDel) {
+  const b = document.createElement('button');
+  b.className = 'preset' + (st.name === p.name ? ' on' : '');
+  const cols = p.colors.map(hex);
+  const grad = p.fx === 'rainbow' ? 'linear-gradient(90deg,red,#ff0,lime,cyan,blue,#f0f)' : cols.length > 1 ? `linear-gradient(90deg,${cols.join(',')})` : cols[0];
+  b.innerHTML = `<div class="bar" style="background:${grad}"></div><span></span><small></small>`;
+  b.querySelector('span').textContent = p.name;
+  b.querySelector('small').textContent = p.sub || FX.find(f => f[0] === p.fx)[1];
+  b.onclick = () => applyPreset(p);
+  if (onDel) b.oncontextmenu = e => { e.preventDefault(); onDel(); };
+  return b;
+}
+function renderPresets() {
+  const box = $('presets'); box.innerHTML = '';
+  PRESETS.forEach(p => box.append(presetCard(p)));
+  const m = $('mine'); m.innerHTML = '';
+  if (!mine.length) { const n = document.createElement('p'); n.className = 'note'; n.textContent = 'Пока пусто. Настрой свет и сохрани его кнопкой ниже.'; m.append(n); }
+  mine.forEach((p, i) => {
+    const card = presetCard({ ...p, colors: p.colors.map(c => c.slice()) });
+    const del = document.createElement('span'); del.className = 'x'; del.textContent = '×'; del.setAttribute('role', 'button'); del.setAttribute('aria-label', 'Удалить ' + p.name);
+    del.onclick = e => { e.stopPropagation(); mine.splice(i, 1); store.set('mine', mine); renderAll(); };
+    card.querySelector('span').append(' ', del);
+    m.append(card);
+  });
+}
+function renderSpectrum() {
+  const g = $('spectrum'); g.innerHTML = '';
+  const rows = [[1, 1], [.6, 1], [.3, 1], [1, .55]];
+  rows.forEach(([s, v]) => { for (let i = 0; i < 8; i++) addSw(hsv(i * 45, s, v)); });
+  // Белые от тёплого к холодному
+  ['#FF9A3C', '#FFB86B', '#FFD2A0', '#FFE8CC', '#FFFFFF', '#E6F0FF', '#C8DCFF', '#A8C8FF'].forEach(h => addSw(fromHex(h)));
+  function addSw(rgb) {
+    const b = document.createElement('button'); b.className = 'sw'; b.style.background = hex(rgb);
+    b.setAttribute('aria-label', 'Цвет ' + hex(rgb));
+    b.onclick = () => setColor(rgb.map(Math.round)); g.append(b);
+  }
+}
+function renderFx() {
+  const e = $('effects'); e.innerHTML = '';
+  FX.forEach(([id, n]) => {
+    const b = document.createElement('button'); b.textContent = n; b.className = st.fx === id ? 'on' : '';
+    b.onclick = () => {
+      st.fx = id; t0 = performance.now();
+      if (['flow', 'steps'].includes(id) && st.colors.length < 2) st.colors = PALETTES['Закат'].map(fromHex);
+      if (['fire', 'candle'].includes(id) && st.colors.length < 2) st.colors = [fromHex('#FF3A00'), fromHex('#FF9A1A')];
+      if (id === 'sunrise') st.colors = ['#7A0000', '#FF5A00', '#FFC890'].map(fromHex);
+      if (id === 'storm') st.colors = ['#1A1A60', '#E8F0FF'].map(fromHex);
+      st.name = n; save(); syncUI();
+    };
+    e.append(b);
+  });
+  const pc = $('palettes'); pc.innerHTML = '';
+  Object.entries(PALETTES).forEach(([n, cols]) => {
+    const b = document.createElement('button'); b.textContent = n;
+    b.onclick = () => { st.colors = cols.map(fromHex); if (!['flow', 'steps', 'police'].includes(st.fx)) st.fx = 'flow'; st.name = n; t0 = performance.now(); save(); syncUI(); };
+    pc.append(b);
+  });
+}
+function syncUI() {
+  $('pname').textContent = st.on ? st.name : 'Выключено';
+  $('power').classList.toggle('on', st.on);
+  const [h, s] = toHsv(st.colors[0] || [255, 255, 255]);
+  $('hue').value = Math.round(h); $('sat').value = Math.round(s * 100);
+  $('bright').value = st.bright; $('speed').value = st.speed;
+  $('hueV').textContent = Math.round(h) + '°'; $('satV').textContent = Math.round(s * 100) + '%';
+  $('brV').textContent = st.bright + '%'; $('spV').textContent = st.speed + '%';
+  const hx = hex(st.colors[0] || [255, 255, 255]);
+  if (document.activeElement !== $('hex')) $('hex').value = hx;
+  $('picker').value = hx.toLowerCase();
+  [...$('effects').children].forEach((b, i) => b.classList.toggle('on', FX[i][0] === st.fx));
+  [...$('presets').children].forEach((b, i) => b.classList.toggle('on', PRESETS[i].name === st.name));
+}
+function renderAll() { renderPresets(); renderSpectrum(); renderFx(); renderSchedule(); syncUI(); }
+
+/* ---------- Расписание ---------- */
+const DAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+let sDays = [0, 1, 2, 3, 4, 5, 6];
+function actions() {
+  return [['off', 'Выключить'], ...PRESETS.map(p => ['p:' + p.name, p.name]), ...mine.map(p => ['m:' + p.name, '★ ' + p.name])];
+}
+function renderSchedule() {
+  const sel = $('sAction'), cur = sel.value; sel.innerHTML = '';
+  actions().forEach(([v, n]) => sel.add(new Option(n, v)));
+  sel.value = cur || 'p:Ночник';
+  const d = $('sDays'); d.innerHTML = '';
+  DAYS.forEach((n, i) => {
+    const b = document.createElement('button'); b.textContent = n; b.className = sDays.includes(i) ? 'on' : '';
+    b.onclick = () => { sDays = sDays.includes(i) ? sDays.filter(x => x !== i) : [...sDays, i]; renderSchedule(); };
+    d.append(b);
+  });
+  const list = $('sList'); list.innerHTML = '';
+  schedule.slice().sort((a, b) => a.time.localeCompare(b.time)).forEach(item => {
+    const row = document.createElement('div'); row.className = 'item';
+    const label = (actions().find(a => a[0] === item.action) || [0, item.action])[1];
+    const days = item.days.length === 7 ? 'каждый день' : item.days.sort().map(i => DAYS[i]).join(', ');
+    row.innerHTML = `<div class="t"></div><div class="d"><b></b></div><button class="x" aria-label="Удалить">×</button>`;
+    row.querySelector('.t').textContent = item.time;
+    row.querySelector('b').textContent = label;
+    row.querySelector('.d').append(days);
+    row.querySelector('.x').onclick = () => { schedule = schedule.filter(x => x !== item); store.set('schedule', schedule); renderSchedule(); };
+    list.append(row);
+  });
+}
+$('sAdd').onclick = () => {
+  if (!sDays.length) return;
+  schedule.push({ time: $('sTime').value, action: $('sAction').value, days: sDays.slice(), done: '' });
+  store.set('schedule', schedule); renderSchedule(); keepAwake();
+};
+function runSchedule() {
+  const now = new Date(), hm = now.toTimeString().slice(0, 5), day = (now.getDay() + 6) % 7, stamp = now.toDateString() + hm;
+  schedule.forEach(item => {
+    if (item.time !== hm || !item.days.includes(day) || item.done === stamp) return;
+    item.done = stamp; store.set('schedule', schedule);
+    if (item.action === 'off') return power(false);
+    const [kind, name] = [item.action.slice(0, 1), item.action.slice(2)];
+    const p = (kind === 'p' ? PRESETS : mine).find(x => x.name === name);
+    if (p) applyPreset(kind === 'm' ? { ...p, colors: p.colors.map(c => c.slice()) } : p);
+  });
+}
+setInterval(runSchedule, 10000);
+// Не даём экрану погаснуть, пока есть расписание: иначе айфон усыпит страницу.
+let wake = null;
+async function keepAwake() {
+  if (!schedule.length || wake || !navigator.wakeLock) return;
+  try { wake = await navigator.wakeLock.request('screen'); wake.addEventListener('release', () => { wake = null; }); } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
+
+/* ---------- События ---------- */
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('on', x === b));
+  ['presets', 'color', 'fx', 'sched'].forEach(t => $('tab-' + t).hidden = t !== b.dataset.tab);
+  store.set('tab', b.dataset.tab); window.scrollTo(0, 0);
+});
+const savedTab = store.get('tab', 'presets');
+document.querySelector(`nav button[data-tab="${savedTab}"]`)?.click();
+
+$('connect').onclick = connect;
+$('power').onclick = () => power(!st.on);
+const fromSliders = () => setColor(hsv(+$('hue').value, $('sat').value / 100, 1).map(Math.round));
+$('hue').oninput = fromSliders; $('sat').oninput = fromSliders;
+$('bright').oninput = e => { st.bright = +e.target.value; $('brV').textContent = st.bright + '%'; save(); };
+$('speed').oninput = e => { st.speed = +e.target.value; $('spV').textContent = st.speed + '%'; save(); };
+$('picker').oninput = e => setColor(fromHex(e.target.value));
+$('hexGo').onclick = () => { const c = fromHex($('hex').value); if (c) { setColor(c); err(''); } else err('Код цвета пишется так: #FF6FA8'); };
+$('hex').onkeydown = e => { if (e.key === 'Enter') $('hexGo').click(); };
+$('saveMine').onclick = () => {
+  let name = st.name && !PRESETS.some(p => p.name === st.name) && !mine.some(p => p.name === st.name) ? st.name : 'Мой свет ' + (mine.length + 1);
+  mine.push({ name, sub: FX.find(f => f[0] === st.fx)[1], fx: st.fx, colors: st.colors.map(c => c.map(Math.round)), speed: st.speed, bright: st.bright });
+  store.set('mine', mine); st.name = name; save(); renderAll();
+};
+
+renderAll();
+autoConnect();
+keepAwake();
+</script>
+</body>
+</html>
